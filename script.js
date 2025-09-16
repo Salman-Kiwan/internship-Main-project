@@ -4,12 +4,29 @@
 /////////////////////////////////////////////////
 // BANKIST APP
 
+/////////////////////////////////////////////////
 // Data
+
+// DIFFERENT DATA! Contains movement dates, currency and locale
+
 const account1 = {
   owner: 'Jonas Schmedtmann',
-  movements: [200, 450, -400, 3000, -650, -130, 70, 1300],
-  interestRate: 1.2,
+  movements: [200, 455.23, -306.5, 25000, -642.21, -133.9, 79.97, 1300],
+  interestRate: 1.2, // %
   pin: 1111,
+
+  movementsDates: [
+    '2019-11-18T21:31:17.178Z',
+    '2019-12-23T07:42:02.383Z',
+    '2020-01-28T09:15:04.904Z',
+    '2020-04-01T10:17:24.185Z',
+    '2020-05-08T14:11:59.604Z',
+    '2020-07-26T17:01:17.194Z',
+    '2020-07-28T23:36:17.929Z',
+    '2020-08-01T10:51:36.790Z',
+  ],
+  currency: 'EUR',
+  locale: 'pt-PT', // de-DE
 };
 
 const account2 = {
@@ -17,24 +34,24 @@ const account2 = {
   movements: [5000, 3400, -150, -790, -3210, -1000, 8500, -30],
   interestRate: 1.5,
   pin: 2222,
+
+  movementsDates: [
+    '2019-11-01T13:15:33.035Z',
+    '2019-11-30T09:48:16.867Z',
+    '2019-12-25T06:04:23.907Z',
+    '2020-01-25T14:18:46.235Z',
+    '2020-02-05T16:33:06.386Z',
+    '2020-04-10T14:43:26.374Z',
+    '2020-06-25T18:49:59.371Z',
+    '2020-07-26T12:01:20.894Z',
+  ],
+  currency: 'USD',
+  locale: 'en-US',
 };
 
-const account3 = {
-  owner: 'Steven Thomas Williams',
-  movements: [200, -200, 340, -300, -20, 50, 400, -460],
-  interestRate: 0.7,
-  pin: 3333,
-};
+const accounts = [account1, account2];
 
-const account4 = {
-  owner: 'Sarah Smith',
-  movements: [430, 1000, 700, 50, 90],
-  interestRate: 1,
-  pin: 4444,
-};
-
-const accounts = [account1, account2, account3, account4];
-
+/////////////////////////////////////////////////
 // Elements
 const labelWelcome = document.querySelector('.welcome');
 const labelDate = document.querySelector('.date');
@@ -61,52 +78,96 @@ const inputLoanAmount = document.querySelector('.form__input--loan-amount');
 const inputCloseUsername = document.querySelector('.form__input--user');
 const inputClosePin = document.querySelector('.form__input--pin');
 
-const displayMovements = function (movements, sort = false) {
+/////////////////////////////////////////////////
+// Functions
+
+const formatMovementDate = function (date, locale) {
+  const calcDaysPassed = (date1, date2) =>
+    Math.round(Math.abs(date2 - date1) / (1000 * 60 * 60 * 24));
+
+  const daysPassed = calcDaysPassed(new Date(), date);
+  console.log(daysPassed);
+
+  if (daysPassed === 0) return 'Today';
+  if (daysPassed === 1) return 'Yesterday';
+  if (daysPassed <= 7) return `${daysPassed} days ago`;
+
+  // const day = `${date.getDate()}`.padStart(2, 0);
+  // const month = `${date.getMonth() + 1}`.padStart(2, 0);
+  // const year = date.getFullYear();
+  // return `${day}/${month}/${year}`;
+  return new Intl.DateTimeFormat(locale).format(date);
+};
+
+const formatCur = function (value, locale, currency) {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: currency,
+  }).format(value);
+};
+
+const displayMovements = function (acc, sort = false) {
   containerMovements.innerHTML = '';
 
-  const movs = sort ? movements.slice().sort((a, b) => a - b) : movements;
-  movs.forEach(function (mov, i) {
-    const type = mov > 0 ? `deposit` : `withdrawal`;
+  const combinedMovsDates = acc.movements.map((mov, i) => ({
+    movement: mov,
+    movementDate: acc.movementsDates.at(i),
+  }));
 
-    const html = `      
+  if (sort) combinedMovsDates.sort((a, b) => a.movement - b.movement);
+
+  combinedMovsDates.forEach(function (obj, i) {
+    const { movement, movementDate } = obj;
+    const type = movement > 0 ? 'deposit' : 'withdrawal';
+
+    const date = new Date(movementDate);
+    const displayDate = formatMovementDate(date, acc.locale);
+
+    const formattedMov = formatCur(movement, acc.locale, acc.currency);
+
+    const html = `
       <div class="movements__row">
-        <div class="movements__type movements__type--${type}">
-        ${i + 1} ${type}
-        </div>
-        <div class="movements__value">${mov}€</div>
+        <div class="movements__type movements__type--${type}">${
+      i + 1
+    } ${type}</div>
+        <div class="movements__date">${displayDate}</div>
+        <div class="movements__value">${formattedMov}</div>
       </div>
-        `;
+    `;
 
     containerMovements.insertAdjacentHTML('afterbegin', html);
   });
 };
 
 const calcDisplayBalance = function (acc) {
-  acc.balance = acc.movements.reduce((acc, mov) => (acc += mov));
-  labelBalance.textContent = `${acc.balance}€`;
+  acc.balance = acc.movements.reduce((acc, mov) => acc + mov, 0);
+  labelBalance.textContent = formatCur(acc.balance, acc.locale, acc.currency);
 };
 
 const calcDisplaySummary = function (acc) {
-  const sumIn = acc.movements
+  const incomes = acc.movements
     .filter(mov => mov > 0)
     .reduce((acc, mov) => acc + mov, 0);
-  labelSumIn.innerHTML = `${sumIn}€`;
-  const sumOut = Math.abs(
-    acc.movements.filter(mov => mov < 0).reduce((acc, mov) => acc + mov, 0)
-  );
-  labelSumOut.innerHTML = `${sumOut}€`;
+  labelSumIn.textContent = formatCur(incomes, acc.locale, acc.currency);
+
+  const out = acc.movements
+    .filter(mov => mov < 0)
+    .reduce((acc, mov) => acc + mov, 0);
+  labelSumOut.textContent = formatCur(Math.abs(out), acc.locale, acc.currency);
 
   const interest = acc.movements
     .filter(mov => mov > 0)
-    .map(dep => (dep * acc.interestRate) / 100)
-    .filter(interest => interest > 1)
-    .reduce((acc, mov) => acc + mov, 0);
-  labelSumInterest.innerHTML = `${interest}€`;
-  console.log(acc.interestRate);
+    .map(deposit => (deposit * acc.interestRate) / 100)
+    .filter((int, i, arr) => {
+      // console.log(arr);
+      return int >= 1;
+    })
+    .reduce((acc, int) => acc + int, 0);
+  labelSumInterest.textContent = formatCur(interest, acc.locale, acc.currency);
 };
 
-const createUsernames = accs => {
-  accounts.forEach(acc => {
+const createUsernames = function (accs) {
+  accs.forEach(function (acc) {
     acc.username = acc.owner
       .toLowerCase()
       .split(' ')
@@ -114,21 +175,58 @@ const createUsernames = accs => {
       .join('');
   });
 };
-
 createUsernames(accounts);
 
 const updateUI = function (acc) {
-  //  Display movements
-  displayMovements(acc.movements);
+  // Display movements
+  displayMovements(acc);
+
   // Display balance
   calcDisplayBalance(acc);
+
   // Display summary
   calcDisplaySummary(acc);
 };
-// Event handlers
-let currentAccount;
 
-btnLogin.addEventListener('click', e => {
+const startLogOutTimer = function () {
+  const tick = function () {
+    const min = String(Math.trunc(time / 60)).padStart(2, 0);
+    const sec = String(time % 60).padStart(2, 0);
+
+    // In each call, print the remaining time to UI
+    labelTimer.textContent = `${min}:${sec}`;
+
+    // When 0 seconds, stop timer and log out user
+    if (time === 0) {
+      clearInterval(timer);
+      labelWelcome.textContent = 'Log in to get started';
+      containerApp.style.opacity = 0;
+    }
+
+    // Decrease 1s
+    time--;
+  };
+
+  // Set time to 5 minutes
+  let time = 120;
+
+  // Call the timer every second
+  tick();
+  const timer = setInterval(tick, 1000);
+
+  return timer;
+};
+
+///////////////////////////////////////
+// Event handlers
+let currentAccount, timer;
+
+// FAKE ALWAYS LOGGED IN
+// currentAccount = account1;
+// updateUI(currentAccount);
+// containerApp.style.opacity = 100;
+
+btnLogin.addEventListener('click', function (e) {
   // Prevent form from submitting
   e.preventDefault();
 
@@ -136,543 +234,403 @@ btnLogin.addEventListener('click', e => {
     acc => acc.username === inputLoginUsername.value
   );
   console.log(currentAccount);
-  if (currentAccount?.pin === Number(inputLoginPin.value)) {
+
+  if (currentAccount?.pin === +inputLoginPin.value) {
     // Display UI and message
     labelWelcome.textContent = `Welcome back, ${
       currentAccount.owner.split(' ')[0]
     }`;
-    containerApp.style = 'opacity:1';
+    containerApp.style.opacity = 100;
+
+    // Create current date and time
+    const now = new Date();
+    const options = {
+      hour: 'numeric',
+      minute: 'numeric',
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+      // weekday: 'long',
+    };
+    // const locale = navigator.language;
+    // console.log(locale);
+
+    labelDate.textContent = new Intl.DateTimeFormat(
+      currentAccount.locale,
+      options
+    ).format(now);
+
+    // const day = `${now.getDate()}`.padStart(2, 0);
+    // const month = `${now.getMonth() + 1}`.padStart(2, 0);
+    // const year = now.getFullYear();
+    // const hour = `${now.getHours()}`.padStart(2, 0);
+    // const min = `${now.getMinutes()}`.padStart(2, 0);
+    // labelDate.textContent = `${day}/${month}/${year}, ${hour}:${min}`;
 
     // Clear input fields
     inputLoginUsername.value = inputLoginPin.value = '';
     inputLoginPin.blur();
+
+    // Timer
+    if (timer) clearInterval(timer);
+    timer = startLogOutTimer();
+
     // Update UI
     updateUI(currentAccount);
   }
 });
 
-btnTransfer.addEventListener('click', e => {
+btnTransfer.addEventListener('click', function (e) {
   e.preventDefault();
-  const amount = Number(inputTransferAmount.value);
+  const amount = +inputTransferAmount.value;
   const receiverAcc = accounts.find(
     acc => acc.username === inputTransferTo.value
   );
-  console.log(amount, receiverAcc);
+  inputTransferAmount.value = inputTransferTo.value = '';
 
   if (
     amount > 0 &&
-    receiverAcc.username &&
+    receiverAcc &&
     currentAccount.balance >= amount &&
     receiverAcc?.username !== currentAccount.username
   ) {
     // Doing the transfer
     currentAccount.movements.push(-amount);
     receiverAcc.movements.push(amount);
+
+    // Add transfer date
+    currentAccount.movementsDates.push(new Date().toISOString());
+    receiverAcc.movementsDates.push(new Date().toISOString());
+
     // Update UI
     updateUI(currentAccount);
-    // Clear input fields
-    inputTransferAmount.value = '';
-    inputTransferTo.value = '';
+
+    // Reset timer
+    clearInterval(timer);
+    timer = startLogOutTimer();
   }
 });
 
-btnLoan.addEventListener('click', e => {
+btnLoan.addEventListener('click', function (e) {
   e.preventDefault();
-  console.log('log');
-  const amount = Number(inputLoanAmount.value);
+
+  const amount = Math.floor(inputLoanAmount.value);
+
   if (amount > 0 && currentAccount.movements.some(mov => mov >= amount * 0.1)) {
-    setTimeout(() => {
+    setTimeout(function () {
       // Add movement
       currentAccount.movements.push(amount);
+
+      // Add loan date
+      currentAccount.movementsDates.push(new Date().toISOString());
+
       // Update UI
       updateUI(currentAccount);
-    }, 5000);
-  } else {
-    alert('Insufficient funds');
+
+      // Reset timer
+      clearInterval(timer);
+      timer = startLogOutTimer();
+    }, 2500);
   }
+  inputLoanAmount.value = '';
 });
 
-btnClose.addEventListener('click', e => {
+btnClose.addEventListener('click', function (e) {
   e.preventDefault();
-  console.log('delete');
-  const username = inputCloseUsername.value;
-  const pin = Number(inputClosePin.value);
 
-  if (currentAccount.username === username && currentAccount.pin === pin) {
-    containerApp.style = 'opacity:0';
-    labelWelcome.textContent = 'Log in to get started';
-    // Clear input fields
-    inputCloseUsername.value = '';
-    inputClosePin.value = '';
+  if (
+    inputCloseUsername.value === currentAccount.username &&
+    +inputClosePin.value === currentAccount.pin
+  ) {
+    const index = accounts.findIndex(
+      acc => acc.username === currentAccount.username
+    );
+    console.log(index);
+    // .indexOf(23)
+
+    // Delete account
+    accounts.splice(index, 1);
+
+    // Hide UI
+    containerApp.style.opacity = 0;
   }
-  const index = accounts.findIndex(
-    currentAccount => currentAccount.username === username
-  );
-  accounts.splice(index, 1);
+
+  inputCloseUsername.value = inputClosePin.value = '';
 });
-// Stage var
+
 let sorted = false;
-btnSort.addEventListener('click', e => {
+btnSort.addEventListener('click', function (e) {
   e.preventDefault();
-  sorted === false
-    ? displayMovements(currentAccount.movements, true)
-    : displayMovements(currentAccount.movements, false);
+  // BUG in video:
+  // displayMovements(currentAccount.movements, !sorted);
+
+  // FIX:
+  displayMovements(currentAccount, !sorted);
   sorted = !sorted;
 });
 
-// console.log(accounts);
 /////////////////////////////////////////////////
 /////////////////////////////////////////////////
 // LECTURES
 
-/////////////////////////////////////////////////
+/*
+///////////////////////////////////////
+// Converting and Checking Numbers
+console.log(23 === 23.0);
 
-// let arr = ['a', 'b', 'c', 'd', 'e'];
-// console.log(arr.slice(2));
-// console.log(arr.slice(2, 4));
-// console.log(arr.slice(-2));
-// console.log(arr.slice(-1));
-// console.log(arr.slice(1, -2));
-// console.log(arr.slice());
-// console.log([...arr]);
+// Base 10 - 0 to 9. 1/10 = 0.1. 3/10 = 3.3333333
+// Binary base 2 - 0 1
+console.log(0.1 + 0.2);
+console.log(0.1 + 0.2 === 0.3);
 
-// // SPLICE
-// // console.log(arr.splice(2));
-// // arr.splice(-1);
-// // arr.splice(1, 2);
-// // console.log(arr);
+// Conversion
+console.log(Number('23'));
+console.log(+'23');
 
-// //  REVERSE
-// const arr2 = ['j', 'i', 'h', 'g', 'f'];
-// console.log(arr2.reverse());
-// console.log(arr2);
+// Parsing
+console.log(Number.parseInt('30px', 10));
+console.log(Number.parseInt('e23', 10));
 
-// // CONCAT
-// const letters = arr.concat(arr2);
-// console.log([...arr, ...arr2]);
+console.log(Number.parseInt('  2.5rem  '));
+console.log(Number.parseFloat('  2.5rem  '));
 
-// // JOIN
-// console.log(letters.join(' - '));
+// console.log(parseFloat('  2.5rem  '));
 
-// // PUSH , SHIFT , UNSHIFT , POP , INCLUDES , INDEXOF , LASTINDEXOF . FINDINDEX  , FINDLASTINDEXOF, FIND
+// Check if value is NaN
+console.log(Number.isNaN(20));
+console.log(Number.isNaN('20'));
+console.log(Number.isNaN(+'20X'));
+console.log(Number.isNaN(23 / 0));
 
-// const arr = [23, 11, 64];
-// console.log(arr[0]);
-// console.log(arr.at(0));
+// Checking if value is number
+console.log(Number.isFinite(20));
+console.log(Number.isFinite('20'));
+console.log(Number.isFinite(+'20X'));
+console.log(Number.isFinite(23 / 0));
 
-// // getting last array element
-// console.log(arr[arr.length - 1]);
-// // console.log(...arr.slice(-1));
-// // console.log(arr.slice(-1)[0]);
-// console.log(arr.at(-1));
-// console.log(arr.at(-2));
+console.log(Number.isInteger(23));
+console.log(Number.isInteger(23.0));
+console.log(Number.isInteger(23 / 0));
 
-// console.log('Ado'.at(0));
-// console.log('Ado'.at(-1));
 
-const movements = [200, 450, -400, 3000, -650, -130, 70, 1300];
-
-// for (const [i, movement] of movements.entries()) {
-//   if (movement > 0) {
-//     console.log(`Movement ${i + 1}: You deposited ${movement}`);
-//   } else {
-//     console.log(`Movement ${i + 1}: You withdrew ${Math.abs(movement)}`);
-//   }
-// }
-
-// console.log('---- FOREACH ----');
-// movements.forEach(function (mov, i, arr) {
-//   if (mov > 0) {
-//     console.log(`Movement ${i + 1}: You deposited ${mov}`);
-//   } else {
-//     console.log(`Movement ${i + 1}: You withdrew ${Math.abs(mov)}`);
-//   }
-//   // console.log(arr);
-// });
-
-// // MAP
-// const currencies = new Map([
-//   ['USD', 'United States dollar'],
-//   ['EUR', 'Euro'],
-//   ['GBP', 'Pound sterling'],
-// ]);
-
-// currencies.forEach(function (value, key, map) {
-//   console.log(`${key}: ${value}`);
-// });
-
-// // SET
-// const currenciesUnique = new Set(['USD', 'EUR', 'GBP']);
-// console.log(currenciesUnique);
-
-// currenciesUnique.forEach(function (value, _, map) {
-//   console.log(`${_}: ${value}`);
-// });
-
-/* 
-Julia and Kate are doing a study on dogs. So each of them asked 5 dog owners about their dog's age, and stored the data into an array (one array for each). For now, they are just interested in knowing whether a dog is an adult or a puppy. A dog is an adult if it is at least 3 years old, and it's a puppy if it's less than 3 years old.
-
-Create a function 'checkDogs', which accepts 2 arrays of dog's ages ('dogsJulia' and 'dogsKate'), and does the following things:
-
-1. Julia found out that the owners of the FIRST and the LAST TWO dogs actually have cats, not dogs! So create a shallow copy of Julia's array, and remove the cat ages from that copied array (because it's a bad practice to mutate function parameters)
-2. Create an array with both Julia's (corrected) and Kate's data
-3. For each remaining dog, log to the console whether it's an adult ("Dog number 1 is an adult, and is 5 years old") or a puppy ("Dog number 2 is still a puppy 🐶")
-4. Run the function for both test datasets
-
-HINT: Use tools from all lectures in this section so far 😉
-
-TEST DATA 1: Julia's data [3, 5, 2, 12, 7], Kate's data [4, 1, 15, 8, 3]
-TEST DATA 2: Julia's data [9, 16, 6, 8, 3], Kate's data [10, 5, 6, 1, 4]
-
-GOOD LUCK 😀
-*/
-
-// const checkDogs = function (dogsJulia, dogsKate) {
-//   const dogsJuliaCorrected = dogsJulia.slice();
-//   dogsJuliaCorrected.splice(0, 1);
-//   dogsJuliaCorrected.splice(-2, 2);
-//   const allDogs = dogsJuliaCorrected.concat(dogsKate);
-//   console.log(allDogs);
-//   allDogs.forEach(function (Age, i) {
-//     const dog = `Dog number ${i + 1} is ${
-//       Age >= 3 ? 'an adult' : 'still a puppy 🐶'
-//     }`;
-//     console.log(dog);
-//   });
-// };
-// let dogsJulia = [3, 5, 2, 12, 7];
-// let dogsKate = [4, 1, 15, 8, 3];
-// checkDogs(dogsJulia, dogsKate);
-
-// const euroToUSD = 11;
-// const movementsUSD = movements.map(mov => (mov * euroToUSD) / 10);
-// console.log(movementsUSD);
-// console.log(movements);
-
-// const movementsUSDFor = [];
-// for (const mov of movements) movementsUSDFor.push((mov * euroToUSD) / 10);
-
-// console.log(movementsUSDFor);
-
-// const movementsDiscription = movements.map((mov, i) => {
-//   const type = mov > 0 ? `deposit` : `withdrawal`;
-//   return `Movement ${i + 1} : ${type} of ${Math.abs(mov)} euros`;
-// });
-
-// console.log(movementsDiscription);
-
-// const deposits = movements.filter(function (mov, i, arr) {
-//   return mov > 0;
-// });
-// console.log(deposits);
-// const depositsFor = [];
-// for (const mov of movements) {
-//   mov > 0 ? depositsFor.push(mov) : null;
-// }
-// console.log(depositsFor);
-
-// const withdrawals = movements.filter(mov => mov < 0).map(mov => Math.abs(mov));
-// console.log(withdrawals);
-
-// accumulator -> SNOWBALL
-// const balance = movements.reduce((acc, cur, i, arr) => {
-//   console.log(`Itteration ${i}: ${acc}`);
-//   return acc + cur;
-// }, 0);
-// console.log(balance);
-
-// let sum = 0;
-// for (const [i, cur] of movements.entries()) {
-//   console.log(`Itteration ${i}: ${sum}`);
-//   sum += cur;
-// }
-// console.log(sum);
-
-// let sumFor = 0;
-// const balanceFor = movements.forEach((mov, i, array) => {
-//   console.log(`Itteration ${i}: ${sumFor}`);
-//   return (sumFor += mov);
-// });
-// console.log(balanceFor);
-
-// // Maximum value
-// const max = movements.reduce(
-//   (acc, mov, i) => (acc = acc < mov ? mov : acc),
-//   movements[0]
-// );
-// console.log(max);
 
 ///////////////////////////////////////
-// Coding Challenge #2
+// Math and Rounding
 
-/* 
-Let's go back to Julia and Kate's study about dogs. This time, they want to convert dog ages to human ages and calculate the average age of the dogs in their study.
+console.log(Math.sqrt(25));
+console.log(25 ** (1 / 2));
+console.log(8 ** (1 / 3));
 
-Create a function 'calcAverageHumanAge', which accepts an arrays of dog's ages ('ages'), and does the following things in order:
+console.log(Math.max(5, 18, 23, 11, 2));
+console.log(Math.max(5, 18, '23', 11, 2));
+console.log(Math.max(5, 18, '23px', 11, 2));
 
-1. Calculate the dog age in human years using the following formula: if the dog is <= 2 years old, humanAge = 2 * dogAge. If the dog is > 2 years old, humanAge = 16 + dogAge * 4.
-2. Exclude all dogs that are less than 18 human years old (which is the same as keeping dogs that are at least 18 years old)
-3. Calculate the average human age of all adult dogs (you should already know from other challenges how we calculate averages 😉)
-4. Run the function for both test datasets
+console.log(Math.min(5, 18, 23, 11, 2));
 
-TEST DATA 1: [5, 2, 4, 1, 15, 8, 3]
-TEST DATA 2: [16, 6, 10, 5, 6, 1, 4]
+console.log(Math.PI * Number.parseFloat('10px') ** 2);
 
-GOOD LUCK 😀
+console.log(Math.trunc(Math.random() * 6) + 1);
+
+const randomInt = (min, max) =>
+  Math.floor(Math.random() * (max - min + 1)) + min;
+
+console.log(randomInt(10, 20));
+console.log(randomInt(0, 3));
+
+// Rounding integers
+console.log(Math.round(23.3));
+console.log(Math.round(23.9));
+
+console.log(Math.ceil(23.3));
+console.log(Math.ceil(23.9));
+
+console.log(Math.floor(23.3));
+console.log(Math.floor('23.9'));
+
+console.log(Math.trunc(23.3));
+
+console.log(Math.trunc(-23.3));
+console.log(Math.floor(-23.3));
+
+// Rounding decimals
+console.log((2.7).toFixed(0));
+console.log((2.7).toFixed(3));
+console.log((2.345).toFixed(2));
+console.log(+(2.345).toFixed(2));
+
+
+///////////////////////////////////////
+// The Remainder Operator
+console.log(5 % 2);
+console.log(5 / 2); // 5 = 2 * 2 + 1
+
+console.log(8 % 3);
+console.log(8 / 3); // 8 = 2 * 3 + 2
+
+console.log(6 % 2);
+console.log(6 / 2);
+
+console.log(7 % 2);
+console.log(7 / 2);
+
+const isEven = n => n % 2 === 0;
+console.log(isEven(8));
+console.log(isEven(23));
+console.log(isEven(514));
+
+labelBalance.addEventListener('click', function () {
+  [...document.querySelectorAll('.movements__row')].forEach(function (row, i) {
+    // 0, 2, 4, 6
+    if (i % 2 === 0) row.style.backgroundColor = 'orangered';
+    // 0, 3, 6, 9
+    if (i % 3 === 0) row.style.backgroundColor = 'blue';
+  });
+});
+
+
+///////////////////////////////////////
+// Numeric Separators
+
+// 287,460,000,000
+const diameter = 287_460_000_000;
+console.log(diameter);
+
+const price = 345_99;
+console.log(price);
+
+const transferFee1 = 15_00;
+const transferFee2 = 1_500;
+
+const PI = 3.1415;
+console.log(PI);
+
+console.log(Number('230_000'));
+console.log(parseInt('230_000'));
+
+
+///////////////////////////////////////
+// Working with BigInt
+console.log(2 ** 53 - 1);
+console.log(Number.MAX_SAFE_INTEGER);
+console.log(2 ** 53 + 1);
+console.log(2 ** 53 + 2);
+console.log(2 ** 53 + 3);
+console.log(2 ** 53 + 4);
+
+console.log(4838430248342043823408394839483204n);
+console.log(BigInt(48384302));
+
+// Operations
+console.log(10000n + 10000n);
+console.log(36286372637263726376237263726372632n * 10000000n);
+// console.log(Math.sqrt(16n));
+
+const huge = 20289830237283728378237n;
+const num = 23;
+console.log(huge * BigInt(num));
+
+// Exceptions
+console.log(20n > 15);
+console.log(20n === 20);
+console.log(typeof 20n);
+console.log(20n == '20');
+
+console.log(huge + ' is REALLY big!!!');
+
+// Divisions
+console.log(11n / 3n);
+console.log(10 / 3);
+
+
+///////////////////////////////////////
+// Creating Dates
+
+// Create a date
+
+const now = new Date();
+console.log(now);
+
+console.log(new Date('Aug 02 2020 18:05:41'));
+console.log(new Date('December 24, 2015'));
+console.log(new Date(account1.movementsDates[0]));
+
+console.log(new Date(2037, 10, 19, 15, 23, 5));
+console.log(new Date(2037, 10, 31));
+
+console.log(new Date(0));
+console.log(new Date(3 * 24 * 60 * 60 * 1000));
+
+
+// Working with dates
+const future = new Date(2037, 10, 19, 15, 23);
+console.log(future);
+console.log(future.getFullYear());
+console.log(future.getMonth());
+console.log(future.getDate());
+console.log(future.getDay());
+console.log(future.getHours());
+console.log(future.getMinutes());
+console.log(future.getSeconds());
+console.log(future.toISOString());
+console.log(future.getTime());
+
+console.log(new Date(2142256980000));
+
+console.log(Date.now());
+
+future.setFullYear(2040);
+console.log(future);
+
+
+///////////////////////////////////////
+// Operations With Dates
+const future = new Date(2037, 10, 19, 15, 23);
+console.log(+future);
+
+const calcDaysPassed = (date1, date2) =>
+  Math.abs(date2 - date1) / (1000 * 60 * 60 * 24);
+
+const days1 = calcDaysPassed(new Date(2037, 3, 4), new Date(2037, 3, 14));
+console.log(days1);
+
+
+///////////////////////////////////////
+// Internationalizing Numbers (Intl)
+const num = 3884764.23;
+
+const options = {
+  style: 'currency',
+  unit: 'celsius',
+  currency: 'EUR',
+  // useGrouping: false,
+};
+
+console.log('US:      ', new Intl.NumberFormat('en-US', options).format(num));
+console.log('Germany: ', new Intl.NumberFormat('de-DE', options).format(num));
+console.log('Syria:   ', new Intl.NumberFormat('ar-SY', options).format(num));
+console.log(
+  navigator.language,
+  new Intl.NumberFormat(navigator.language, options).format(num)
+);
+
+
+///////////////////////////////////////
+// Timers
+
+// setTimeout
+const ingredients = ['olives', 'spinach'];
+const pizzaTimer = setTimeout(
+  (ing1, ing2) => console.log(`Here is your pizza with ${ing1} and ${ing2} 🍕`),
+  3000,
+  ...ingredients
+);
+console.log('Waiting...');
+
+if (ingredients.includes('spinach')) clearTimeout(pizzaTimer);
+
+// setInterval
+setInterval(function () {
+  const now = new Date();
+  console.log(now);
+}, 1000);
 */
-// const calcAverageHumanAge = ages => {
-//   const humanAges = ages.map(age => (age >= 2 ? 16 + age * 4 : 2 * age));
-//   console.log(humanAges);
-//   const adultDogs = humanAges.filter(age => age >= 18);
-//   console.log(adultDogs);
-//   // const average = Math.round(
-//   //   adultDogs.reduce((acc, age) => acc + age, 0) / adultDogs.length
-//   // );
-//   const average = Math.round(
-//     adultDogs.reduce((acc, age, i, arr) => acc + age / arr.length, 0)
-//   );
-//   console.log(average);
-// };
-// calcAverageHumanAge([5, 2, 4, 1, 15, 8, 3]);
-
-// const euroToUSD = 11;
-
-// PIPELINE
-// const totalDepositsUSD = movements
-//   .filter((mov, i) => mov > 0)
-//   .map((mov, i, arr) => {
-//     // console.log(arr);
-//     return (mov * euroToUSD) / 10;
-//   })
-//   .reduce((acc, mov) => acc + mov, 0);
-
-// console.log(totalDepositsUSD);
-
-// const totalWithdrawalsUSD = Math.abs(
-//   movements
-//     .filter(mov => mov < 0)
-//     .map(mov => mov * euroToUSD)
-//     .reduce((acc, mov) => acc + mov, 0)
-// );
-// console.log(totalWithdrawalsUSD);
-
-// const calcAverageHumanAge = ages =>
-//   ages
-//     .map(age => (age <= 2 ? 2 * age : 16 + age * 4))
-//     .filter(age => age >= 18)
-//     .reduce((acc, avg, i, arr) => acc + avg / arr.length, 0);
-
-// const avg1 = calcAverageHumanAge([5, 2, 4, 1, 15, 8, 3]);
-// console.log(avg1);
-
-// const firstWithdrawal = movements.find(mov => mov < 0);
-// console.log(firstWithdrawal);
-
-// // console.log(accounts);
-
-// const account = accounts.find(acc => acc.owner === 'Jessica Davis');
-
-// console.log(account);
-
-// let firstDeposit;
-// for (const dep of movements) {
-//   if (dep > 0) {
-//     firstDeposit = dep;
-//     break;
-//   } else {
-//     continue;
-//   }
-// }
-// console.log(firstDeposit);
-
-// console.log(movements);
-// const lastWithdrawal = movements.findLast(mov => mov < 0);
-
-// console.log(lastWithdrawal);
-// const lastLargeMovIndex = movements.findLastIndex(mov => mov >= Math.abs(2000));
-// const str = `Your latest larg movement was ${
-//   movements[lastLargeMovIndex]
-// } was ${movements.length - lastLargeMovIndex} movements ago`;
-// console.log(str);
-
-// console.log(movements);
-
-// // EQUALITY
-// console.log(movements.includes(-130));
-
-// // SOME: CONDITION
-// const anyDeposits = movements.some(mov => mov > 1500);
-// console.log(deposits);
-
-// // EVERY: CONDITION
-// console.log(movements.every(mov => mov > 0));
-// console.log(account4.movements.every(mov => mov > 0));
-
-// // Seperate callback
-// const deposit = mov => mov >= 0;
-
-// console.log(movements.some(deposit));
-// console.log(movements.every(deposit));
-// console.log(movements.filter(deposit));
-
-// const arr = [[1, 2, 3], [4, 5, 6], 7, 9];
-// console.log(arr.flat());
-
-// const arrDeep = [[[1, 2], 3], [[4, 5], 6], 7, 8];
-// console.log(arrDeep.flat(2));
-
-// const accountMovements = accounts.map(acc => acc.movements);
-// const allMovements = accountMovements.flat();
-// console.log(allMovements);
-// const overallBalance = allMovements.reduce((acc, mov) => acc + mov, 0);
-// console.log(overallBalance);
-
-// // flat
-// const overallBalance = accounts
-//   .map(acc => acc.movements)
-//   .flat()
-//   .reduce((acc, mov) => acc + mov, 1);
-// console.log(overallBalance);
-
-// // flatMap
-// const overallBalance = accounts
-//   .flatMap(acc => acc.movements)
-//   .reduce((acc, mov) => acc + mov, 1);
-// console.log(overallBalance);
-
-// ///////////////////////////////////////
-// // Coding Challenge #4
-
-// /*
-// This time, Julia and Kate are studying the activity levels of different dog breeds.
-
-// YOUR TASKS:
-// 1. Store the the average weight of a "Husky" in a variable "huskyWeight"
-// 2. Find the name of the only breed that likes both "running" and "fetch" ("dogBothActivities" variable)
-// 3. Create an array "allActivities" of all the activities of all the dog breeds
-// 4. Create an array "uniqueActivities" that contains only the unique activities (no activity repetitions). HINT: Use a technique with a special data structure that we studied a few sections ago.
-// 5. Many dog breeds like to swim. What other activities do these dogs like? Store all the OTHER activities these breeds like to do, in a unique array called "swimmingAdjacent".
-// 6. Do all the breeds have an average weight of 10kg or more? Log to the console whether "true" or "false".
-// 7. Are there any breeds that are "active"? "Active" means that the dog has 3 or more activities. Log to the console whether "true" or "false".
-
-// BONUS: What's the average weight of the heaviest breed that likes to fetch? HINT: Use the "Math.max" method along with the ... operator.
-
-// TEST DATA:
-// */
-
-// const breeds = [
-//   {
-//     breed: 'German Shepherd',
-//     averageWeight: 32,
-//     activities: ['fetch', 'swimming'],
-//   },
-//   {
-//     breed: 'Dalmatian',
-//     averageWeight: 24,
-//     activities: ['running', 'fetch', 'agility'],
-//   },
-//   {
-//     breed: 'Labrador',
-//     averageWeight: 28,
-//     activities: ['swimming', 'fetch'],
-//   },
-//   {
-//     breed: 'Beagle',
-//     averageWeight: 12,
-//     activities: ['digging', 'fetch'],
-//   },
-//   {
-//     breed: 'Husky',
-//     averageWeight: 26,
-//     activities: ['running', 'agility', 'swimming'],
-//   },
-//   {
-//     breed: 'Bulldog',
-//     averageWeight: 36,
-//     activities: ['sleeping'],
-//   },
-//   {
-//     breed: 'Poodle',
-//     averageWeight: 18,
-//     activities: ['agility', 'fetch'],
-//   },
-// ];
-
-// // 1 . Store the the average weight of a "Husky" in a variable "huskyWeight
-// const huskyWeight = breeds.find(breed => breed.breed === 'Husky').averageWeight;
-// console.log(huskyWeight);
-
-// // 2 . Find the name of the only breed that likes both "running" and "fetch" ("dogBothActivities" variable)
-// const dogBothActivities = breeds.find(
-//   breeds =>
-//     breeds.activities.includes('swimming') &&
-//     breeds.activities.includes('fetch')
-// ).breed;
-// console.log(dogBothActivities);
-
-// // 3. Create an array "allActivities" of all the activities of all the dog breeds
-// const allActivities = breeds.flatMap(breed => breed.activities);
-// console.log(allActivities);
-
-// // 4. Create an array "uniqueActivities" that contains only the unique activities (no activity repetitions). HINT: Use a technique with a special data structure that we studied a few sections ago.
-// const uniqueActivities = [...new Set(allActivities)];
-// console.log(uniqueActivities);
-
-// // 5. Many dog breeds like to swim. What other activities do these dogs like? Store all the OTHER activities these breeds like to do, in a unique array called "swimmingAdjacent".
-// const swimmingAdjacent = [
-//   ...new Set(
-//     breeds
-//       .filter(breed => breed.activities.includes('swimming'))
-//       .flatMap(breed => breed.activities)
-//       .filter(activity => activity !== 'swimming')
-//   ),
-// ];
-// console.log(swimmingAdjacent);
-
-// // 6. Do all the breeds have an average weight of 10kg or more? Log to the console whether "true" or "false".
-// const allBreedsWeight = breeds.every(breed => breed.averageWeight >= 10);
-// console.log(allBreedsWeight);
-
-// // 7. Are there any breeds that are "active"? "Active" means that the dog has 3 or more activities. Log to the console whether "true" or "false".
-// const activeBreeds = breeds.some(breed => breed.activities.length >= 3);
-// console.log(activeBreeds);
-
-// // Bonus
-// const heaviestBreadThatLikesToFetch = breeds
-//   .filter(breed => breed.activities.includes('fetch'))
-//   .reduce(
-//     (acc, breed, _, arr) =>
-//       (acc = acc.averageWeight > breed.averageWeight ? acc : breed),
-//     breeds[0]
-//   ).breed;
-// console.log(heaviestBreadThatLikesToFetch);
-
-// // Strings
-// const owners = ['jonas', 'zach', 'Adam', 'Martha'];
-// console.log(owners.sort());
-// console.log(owners);
-
-// // Numbers
-// console.log(movements);
-// console.log(movements.sort());
-// // Return < 0, A, B (keep order)
-// // Return > 0, B, A (swap order)
-
-// // const sortedMovements = movements.sort((a, b) => {
-// //   if (a > b) {
-// //     return 1;
-// //   } else {
-// //     return -1;
-// //   }
-// // });
-// const sortedMovements = movements.sort((a, b) => a - b);
-// console.log(sortedMovements);
-// // const sortedMovements2 = movements.sort((a, b) => {
-// //   if (a > b) {
-// //     return -1;
-// //   } else {
-// //     return -1;
-// //   }
-// // });
-// const sortedMovements2 = movements.sort((a, b) => b - a);
-// console.log(sortedMovements2);
